@@ -9,7 +9,7 @@ import "google/protobuf/timestamp.proto";
 // ParcelService manages parcel lifecycle — creation, tracking, and delivery.
 service ParcelService {
   // CreateParcel registers a new parcel for shipment.
-  rpc CreateParcel(CreateParcelRequest) returns (CreateParcelResponse);
+  //rpc CreateParcel(CreateParcelRequest) returns (CreateParcelResponse);
 
   // GetParcel retrieves details of an existing parcel.
   rpc GetParcel(GetParcelRequest) returns (GetParcelResponse);
