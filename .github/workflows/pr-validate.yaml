@@ -38,7 +38,7 @@ jobs:
           setup_only: true
 
       - name: buf breaking (against main)
-        run: buf breaking --against '.git#branch=main'
+        run: buf breaking --against '.git#branch=origin/main'
 
   generate-verify:
     name: Generate & verify stubs
