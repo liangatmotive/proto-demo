@@ -1,0 +1,146 @@
+syntax = "proto3";
+
+package shipping.v1;
+
+option go_package = "github.com/liangatmotive/proto-demo/gen/go/shipping/v1;shippingv1";
+
+import "google/protobuf/timestamp.proto";
+
+// ParcelService manages parcel lifecycle — creation, tracking, and delivery.
+service ParcelService {
+  // CreateParcel registers a new parcel for shipment.
+  rpc CreateParcel(CreateParcelRequest) returns (CreateParcelResponse);
+
+  // GetParcel retrieves details of an existing parcel.
+  rpc GetParcel(GetParcelRequest) returns (GetParcelResponse);
+
+  // ListParcels lists parcels for a given account with pagination.
+  rpc ListParcels(ListParcelsRequest) returns (ListParcelsResponse);
+}
+
+// WarehouseService manages warehouse inventory and assignments.
+service WarehouseService {
+  // AssignWarehouse assigns a parcel to a warehouse for processing.
+  rpc AssignWarehouse(AssignWarehouseRequest) returns (AssignWarehouseResponse);
+
+  // GetWarehouseCapacity returns current capacity for a warehouse.
+  rpc GetWarehouseCapacity(GetWarehouseCapacityRequest) returns (GetWarehouseCapacityResponse);
+}
+
+// ---------- Parcel Messages ----------
+
+message CreateParcelRequest {
+  string account_id = 1;
+  Address origin = 2;
+  Address destination = 3;
+  ParcelSize size = 4;
+  double weight_kg = 5;
+}
+
+message CreateParcelResponse {
+  string parcel_id = 1;
+  string tracking_number = 2;
+  ParcelStatus status = 3;
+  google.protobuf.Timestamp created_at = 4;
+}
+
+message GetParcelRequest {
+  string parcel_id = 1;
+}
+
+message GetParcelResponse {
+  Parcel parcel = 1;
+}
+
+message ListParcelsRequest {
+  string account_id = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListParcelsResponse {
+  repeated Parcel parcels = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+// ---------- Warehouse Messages ----------
+
+message AssignWarehouseRequest {
+  string parcel_id = 1;
+  string warehouse_id = 2;
+}
+
+message AssignWarehouseResponse {
+  string assignment_id = 1;
+  google.protobuf.Timestamp assigned_at = 2;
+}
+
+message GetWarehouseCapacityRequest {
+  string warehouse_id = 1;
+}
+
+message GetWarehouseCapacityResponse {
+  string warehouse_id = 1;
+  int32 total_slots = 2;
+  int32 used_slots = 3;
+  int32 available_slots = 4;
+}
+
+// ---------- Shared Types ----------
+
+message Parcel {
+  string parcel_id = 1;
+  string tracking_number = 2;
+  string account_id = 3;
+  Address origin = 4;
+  Address destination = 5;
+  ParcelSize size = 6;
+  double weight_kg = 7;
+  ParcelStatus status = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  repeated TrackingEvent events = 11;
+}
+
+message Address {
+  string street = 1;
+  string city = 2;
+  string state = 3;
+  string postal_code = 4;
+  string country_code = 5;
+}
+
+message TrackingEvent {
+  TrackingEventType event_type = 1;
+  google.protobuf.Timestamp occurred_at = 2;
+  string location = 3;
+  string description = 4;
+}
+
+enum ParcelSize {
+  PARCEL_SIZE_UNSPECIFIED = 0;
+  PARCEL_SIZE_SMALL = 1;
+  PARCEL_SIZE_MEDIUM = 2;
+  PARCEL_SIZE_LARGE = 3;
+  PARCEL_SIZE_OVERSIZED = 4;
+}
+
+enum ParcelStatus {
+  PARCEL_STATUS_UNSPECIFIED = 0;
+  PARCEL_STATUS_CREATED = 1;
+  PARCEL_STATUS_IN_WAREHOUSE = 2;
+  PARCEL_STATUS_IN_TRANSIT = 3;
+  PARCEL_STATUS_DELIVERED = 4;
+  PARCEL_STATUS_RETURNED = 5;
+}
+
+enum TrackingEventType {
+  TRACKING_EVENT_TYPE_UNSPECIFIED = 0;
+  TRACKING_EVENT_TYPE_PICKED_UP = 1;
+  TRACKING_EVENT_TYPE_WAREHOUSE_RECEIVED = 2;
+  TRACKING_EVENT_TYPE_DISPATCHED = 3;
+  TRACKING_EVENT_TYPE_OUT_FOR_DELIVERY = 4;
+  TRACKING_EVENT_TYPE_DELIVERED = 5;
+  TRACKING_EVENT_TYPE_RETURN_INITIATED = 6;
+}

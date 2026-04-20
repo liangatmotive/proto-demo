@@ -1,0 +1,10 @@
+# Generated stubs — produced by CI, not committed
+gen/
+
+# OS
+.DS_Store
+
+# Editor
+.idea/
+.vscode/
+*.swp

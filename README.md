@@ -1,0 +1,195 @@
+# proto-demo
+
+Standalone proto repo demo — end-to-end workflow for managing `.proto` definitions with automated CI validation and versioned artifact releases.
+
+Uses a fictional **shipping/parcel** domain. No external infrastructure required — just buf.build remote plugins, GitHub Actions, and GitHub Releases.
+
+---
+
+## Repo Structure
+
+```
+proto-demo/
+├── proto/shipping/v1/
+│   └── shipping_service.proto         ← source of truth
+├── buf.yaml                           ← buf module config (lint + breaking rules)
+├── buf.gen.yaml                       ← generation config (Go + Ruby remote plugins)
+├── .github/workflows/
+│   ├── pr-validate.yaml               ← PR CI: lint, breaking detection, generate
+│   └── release.yaml                   ← Release: tag-triggered or manual dispatch
+└── README.md
+```
+
+Generated stubs (in `gen/`) are **not committed** — they're produced by CI and published as release artifacts.
+
+---
+
+## Prerequisites
+
+```bash
+brew install bufbuild/buf/buf    # buf CLI (local dev only)
+# That's it — remote plugins handle protoc + language plugins automatically
+```
+
+---
+
+## Demo 1: Everyday Dev Workflow (Add / Update / Delete RPC)
+
+### Add a new RPC
+
+```bash
+# 1. Create feature branch
+git checkout -b feat/add-track-parcel
+
+# 2. Edit proto — add a new RPC to ParcelService:
+#
+#    rpc TrackParcel(TrackParcelRequest) returns (TrackParcelResponse);
+#
+#    message TrackParcelRequest {
+#      string tracking_number = 1;
+#    }
+#    message TrackParcelResponse {
+#      repeated TrackingEvent events = 1;
+#    }
+
+# 3. Validate locally
+buf lint                       # check style
+buf generate                   # generate stubs → gen/
+ls gen/go/shipping/v1/         # verify Go stubs
+ls gen/ruby/                   # verify Ruby stubs
+
+# 4. Push & open PR
+git add proto/
+git commit -m "feat: add TrackParcel RPC"
+git push -u origin feat/add-track-parcel
+
+# → PR triggers 3 CI jobs:
+#   ✅ buf lint          — style check
+#   ✅ buf breaking      — no breaking changes (additive)
+#   ✅ generate-verify   — stubs compile, uploaded as artifact
+```
+
+### Update an existing RPC (non-breaking)
+
+```bash
+# Add an optional field to an existing message:
+#   In CreateParcelRequest, add:
+#     string special_instructions = 6;    ← new field, new number
+#
+# buf breaking will PASS (additive change)
+```
+
+### Delete an RPC (breaking change — caught by CI)
+
+```bash
+# Remove GetWarehouseCapacity from WarehouseService
+# → buf breaking FAILS:
+#
+#   Previously present RPC "GetWarehouseCapacity" was deleted
+#   from service "WarehouseService".
+#
+# Proper approach:
+# 1. Mark deprecated:  option deprecated = true;
+# 2. Release deprecation version (e.g. v0.3.0)
+# 3. Remove in a later major version after consumers migrate
+```
+
+---
+
+## Demo 2: Staging / Prod Release Process
+
+### Option A: Tag-based release (standard)
+
+```bash
+# After PR merged to main:
+git checkout main && git pull
+
+# Create version tag
+git tag v0.1.0 -m "Release v0.1.0: ParcelService + WarehouseService"
+git push origin v0.1.0
+
+# → release.yaml triggers:
+#   1. buf lint + buf generate
+#   2. Packages Go stubs → go-stubs-0.1.0.tar.gz
+#   3. Packages Ruby stubs → ruby-stubs-0.1.0.tar.gz
+#   4. Creates GitHub Release with artifacts + changelog
+```
+
+### Option B: Manual dispatch (on-demand)
+
+Go to **Actions → Release → Run workflow** → enter version `0.2.0` → same flow.
+
+### Version strategy
+
+| Change type | Version bump | Example |
+|-------------|-------------|---------|
+| Add RPC / add field | Minor | v0.1.0 → v0.2.0 |
+| Fix proto comments | Patch | v0.2.0 → v0.2.1 |
+| Remove/rename RPC or field | Major | v0.2.1 → v1.0.0 |
+
+---
+
+## Demo 3: Consuming Versioned Artifacts
+
+### View available versions
+
+Go to [Releases](../../releases) — each release contains:
+- `go-stubs-<version>.tar.gz` — Go protobuf + gRPC stubs
+- `ruby-stubs-<version>.tar.gz` — Ruby protobuf + gRPC stubs
+
+### Go consumer
+
+```bash
+# Pin version in a Makefile or CI script
+PROTO_VERSION=0.1.0
+curl -sL "https://github.com/liangatmotive/proto-demo/releases/download/v${PROTO_VERSION}/go-stubs-${PROTO_VERSION}.tar.gz" \
+  | tar xz -C gen/go/
+```
+
+### Ruby consumer
+
+```bash
+PROTO_VERSION=0.1.0
+curl -sL "https://github.com/liangatmotive/proto-demo/releases/download/v${PROTO_VERSION}/ruby-stubs-${PROTO_VERSION}.tar.gz" \
+  | tar xz -C lib/proto/
+```
+
+### Version pinning in CI
+
+```yaml
+# .github/workflows/build.yaml (consumer repo)
+env:
+  PROTO_SHIPPING_VERSION: "0.1.0"
+
+steps:
+  - name: Download proto stubs
+    run: |
+      curl -sL "https://github.com/liangatmotive/proto-demo/releases/download/v${PROTO_SHIPPING_VERSION}/go-stubs-${PROTO_SHIPPING_VERSION}.tar.gz" \
+        | tar xz -C gen/go/
+```
+
+---
+
+## Key Design Decisions
+
+| Aspect | Choice | Why |
+|--------|--------|-----|
+| Plugin execution | Remote (buf.build BSR) | No local protoc/plugin install needed |
+| Stub storage | Generated by CI, not committed | Avoids review noise, single source of truth |
+| Artifact format | tar.gz on GitHub Releases | Simple, versionable, no registry needed |
+| Breaking detection | `buf breaking --against main` | Catches field/RPC removals before merge |
+| Release trigger | Tag push OR manual dispatch | Flexible for automated and ad-hoc releases |
+
+---
+
+## Mapping to Production Infrastructure
+
+| This demo | Production equivalent |
+|-----------|----------------------|
+| GitHub Releases | Nexus artifact registry |
+| `release.yaml` | Reusable GHA from `github-workflows-catalog` |
+| `pr-validate.yaml` | Same (reusable across repos) |
+| buf remote plugins | Same (works everywhere) |
+| tar.gz artifacts | Go modules + Ruby gems on Nexus |
+
+To migrate to production: swap the release artifact step from GitHub Releases to Nexus publishing using DevProd reusable workflows.

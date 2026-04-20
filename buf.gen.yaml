@@ -1,0 +1,19 @@
+version: v2
+plugins:
+  # Go message stubs
+  - remote: buf.build/protocolbuffers/go
+    out: gen/go
+    opt: paths=source_relative
+
+  # Go gRPC service stubs
+  - remote: buf.build/grpc/go
+    out: gen/go
+    opt: paths=source_relative
+
+  # Ruby message stubs
+  - remote: buf.build/protocolbuffers/ruby
+    out: gen/ruby
+
+  # Ruby gRPC service stubs
+  - remote: buf.build/grpc/ruby
+    out: gen/ruby
