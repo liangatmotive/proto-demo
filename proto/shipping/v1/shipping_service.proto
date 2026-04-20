@@ -37,6 +37,7 @@ message CreateParcelRequest {
   Address destination = 3;
   ParcelSize size = 4;
   double weight_kg = 5;
+  string special_instructions = 6;
 }
 
 message CreateParcelResponse {
